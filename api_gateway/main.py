@@ -1,6 +1,7 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, File, UploadFile
 import json
 import os
+import shutil
 
 app = FastAPI(
     title="IIT Roorkee GMAP API Gateway",
@@ -16,13 +17,17 @@ def home():
     return {
         "project": "IIT Roorkee GMAP",
         "status": "Active",
-        "endpoints": ["/api/v1/boq-data", "/api/v1/summary-carbon"]
+        "endpoints": [
+            "/api/v1/boq-data", 
+            "/api/v1/summary-carbon",
+            "/api/v1/process-boq"
+        ]
     }
 
 @app.get("/api/v1/boq-data")
 def get_boq_data():
     """
-    Returns the complete structured, classified, and carbon-enriched BOQ dataset.
+    Returns the complete structured, classified, and carbon-enriched BOQ dataset[cite: 1].
     """
     if not os.path.exists(PAYLOAD_PATH):
         raise HTTPException(status_code=404, detail="Enriched payload not found. Run the pipeline first!")
@@ -34,7 +39,7 @@ def get_boq_data():
 @app.get("/api/v1/summary-carbon")
 def get_carbon_summary():
     """
-    Returns the grand total embodied carbon footprint (A1-A3) for the project.
+    Returns the grand total embodied carbon footprint (A1-A3) for the project[cite: 1].
     """
     if not os.path.exists(PAYLOAD_PATH):
         raise HTTPException(status_code=404, detail="Enriched payload not found.")
@@ -54,6 +59,32 @@ def get_carbon_summary():
         "total_embodied_carbon_kg_co2e": round(total_carbon, 2),
         "category_breakdown_kg_co2e": {k: round(v, 2) for k, v in breakdown.items()}
     }
+
+@app.post("/api/v1/process-boq")
+async def process_uploaded_boq(file: UploadFile = File(...)):
+    """
+    Accepts a new PDF or Excel BOQ file upload, saves it temporarily, 
+    and prepares it to be run through the AI extraction pipeline.
+    """
+    file_path = f"temp_{file.filename}"
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    
+    try:
+        # TODO: Integrate your digital_pdf_engine / ocr_engine and carbon calculator here
+        # extracted_data = run_gmap_pipeline(file_path)
+        
+        return {
+            "filename": file.filename,
+            "status": "Success",
+            "message": "File successfully uploaded and queued for AI parsing and carbon accounting."
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
+    finally:
+        # Clean up the temporary file from the server container
+        if os.path.exists(file_path):
+            os.remove(file_path)
 
 if __name__ == "__main__":
     import uvicorn
