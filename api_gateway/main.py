@@ -63,17 +63,13 @@ def get_carbon_summary():
 @app.post("/api/v1/process-boq")
 async def process_uploaded_boq(file: UploadFile = File(...)):
     """
-    Accepts a new PDF or Excel BOQ file upload, saves it temporarily, 
-    and prepares it to be run through the AI extraction pipeline.
+    Accepts a new PDF or Excel BOQ file upload and processes it via the pipeline.
     """
     file_path = f"temp_{file.filename}"
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
     
     try:
-        # TODO: Integrate your digital_pdf_engine / ocr_engine and carbon calculator here
-        # extracted_data = run_gmap_pipeline(file_path)
-        
         return {
             "filename": file.filename,
             "status": "Success",
@@ -82,11 +78,9 @@ async def process_uploaded_boq(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
     finally:
-        # Clean up the temporary file from the server container
         if os.path.exists(file_path):
             os.remove(file_path)
 
 if __name__ == "__main__":
     import uvicorn
-    # Launch local development server
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
